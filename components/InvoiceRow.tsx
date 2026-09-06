@@ -1,5 +1,6 @@
 import type { Invoice } from '@/types';
 import { getDaysLeft, formatAmount, daysText, getInvoiceStatus } from '@/lib/status';
+import { gregorianToJalali } from '@/lib/jalali';
 
 interface Props {
 	invoice: Invoice;
@@ -31,7 +32,7 @@ export default function InvoiceRow({ invoice, onSettle, onEdit, onDelete, settle
 		<div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${rowStyle[st]}`}>
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2 flex-wrap">
-					<span className="text-xs font-medium">{invoice.date}</span>
+					<span className="text-xs font-medium">{gregorianToJalali(invoice.date)}</span>
 					<span
 						className={`text-xs px-2 py-0.5 rounded-full ${invoice.period === 1 ? 'bg-success-bg text-success-text' : 'bg-primary/10 text-primary'}`}>
 						{invoice.period === 1 ? 'یک ماهه' : 'سه ماهه'}

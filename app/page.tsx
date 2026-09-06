@@ -1,85 +1,62 @@
 'use client';
 
-import { useState } from 'react';
-import type { Pharmacy, FilterType } from '@/types';
+import { useState, useEffect } from 'react';
+import type { Pharmacy, FilterType, Invoice } from '@/types';
 import FilterBar from '@/components/FilterBar';
 import PharmacyList from '@/components/PharmacyList';
 import PharmacyModal from '@/components/modals/PharmacyModal';
-
-const SEED: Pharmacy[] = [
-	{
-		id: 1,
-		name: 'داروخانه بهاری',
-		phone: '09181234567',
-		type: 'pharmacy',
-		invoices: [
-			{
-				id: 11,
-				date: '2025-08-01',
-				amount: 8500000,
-				period: 1,
-				settled: false,
-				notes: 'هفته آینده تسویه می‌کند',
-			},
-			{ id: 12, date: '2025-08-20', amount: 3200000, period: 1, settled: false, notes: '' },
-		],
-	},
-	{
-		id: 2,
-		name: 'مرکز بهداشت شهری',
-		phone: '08733334444',
-		type: 'health',
-		invoices: [
-			{ id: 21, date: '2025-07-15', amount: 15000000, period: 3, settled: false, notes: '' },
-		],
-	},
-];
+import * as api from '@/lib/api';
 
 export default function Home() {
-	const [pharmacies, setPharmacies] = useState<Pharmacy[]>(SEED);
+	const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
 	const [filter, setFilter] = useState<FilterType>('all');
 	const [showAddModal, setShowAddModal] = useState(false);
+	const [loading, setLoading] = useState(true);
 
-	function addPharmacy(data: { name: string; phone: string; type: Pharmacy['type'] }) {
-		setPharmacies((prev) => [...prev, { id: Date.now(), invoices: [], ...data }]);
+	// ── Load ──────────────────────────────────────────────
+	useEffect(() => {
+		api.fetchPharmacies().then((data) => {
+			setPharmacies(data);
+			setLoading(false);
+		});
+	}, []);
+
+	// ── Pharmacy handlers ─────────────────────────────────
+	async function addPharmacy(data: { name: string; phone: string; type: Pharmacy['type'] }) {
+		const created = await api.createPharmacy(data);
+		setPharmacies((prev) => [...prev, { ...created, invoices: [] }]);
 	}
 
-	function updatePharmacy(id: number, data: { name: string; phone: string }) {
-		setPharmacies((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
+	async function updatePharmacy(id: number, data: { name: string; phone: string }) {
+		const updated = await api.updatePharmacy(id, data);
+		setPharmacies((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
 	}
 
-	function deletePharmacy(id: number) {
+	async function deletePharmacy(id: number) {
+		await api.deletePharmacy(id);
 		setPharmacies((prev) => prev.filter((p) => p.id !== id));
 	}
 
-	function addInvoice(
+	// ── Invoice handlers ──────────────────────────────────
+	async function addInvoice(
 		phId: number,
 		data: { date: string; amount: number; period: 1 | 3; notes: string },
 	) {
+		const created = await api.createInvoice(phId, data);
 		setPharmacies((prev) =>
-			prev.map((p) =>
-				p.id === phId
-					? {
-							...p,
-							invoices: [...p.invoices, { id: Date.now(), settled: false, ...data }],
-						}
-					: p,
-			),
+			prev.map((p) => (p.id === phId ? { ...p, invoices: [...p.invoices, created] } : p)),
 		);
 	}
 
-	function updateInvoice(
-		phId: number,
-		invId: number,
-		data: Partial<{ date: string; amount: number; period: 1 | 3; notes: string }>,
-	) {
+	async function updateInvoice(phId: number, invId: number, data: Partial<Invoice>) {
+		const updated = await api.updateInvoice(invId, data);
 		setPharmacies((prev) =>
 			prev.map((p) =>
 				p.id === phId
 					? {
 							...p,
 							invoices: p.invoices.map((i) =>
-								i.id === invId ? { ...i, ...data } : i,
+								i.id === invId ? { ...i, ...updated } : i,
 							),
 						}
 					: p,
@@ -87,8 +64,8 @@ export default function Home() {
 		);
 	}
 
-	function settleInvoice(phId: number, invId: number) {
-		updateInvoice(phId, invId, { settled: true } as never);
+	async function settleInvoice(phId: number, invId: number) {
+		await api.updateInvoice(invId, { settled: true });
 		setPharmacies((prev) =>
 			prev.map((p) =>
 				p.id === phId
@@ -103,7 +80,8 @@ export default function Home() {
 		);
 	}
 
-	function deleteInvoice(phId: number, invId: number) {
+	async function deleteInvoice(phId: number, invId: number) {
+		await api.deleteInvoice(invId);
 		setPharmacies((prev) =>
 			prev.map((p) =>
 				p.id === phId ? { ...p, invoices: p.invoices.filter((i) => i.id !== invId) } : p,
@@ -111,6 +89,7 @@ export default function Home() {
 		);
 	}
 
+	// ── Render ────────────────────────────────────────────
 	return (
 		<main className="max-w-2xl mx-auto px-4 py-6">
 			{/* Header */}
@@ -127,27 +106,31 @@ export default function Home() {
 				</button>
 			</div>
 
-			{/* Filter */}
 			<FilterBar filter={filter} onChange={setFilter} />
 
-			{/* List */}
-			<PharmacyList
-				pharmacies={pharmacies}
-				filter={filter}
-				onUpdatePharmacy={updatePharmacy}
-				onDeletePharmacy={deletePharmacy}
-				onAddInvoice={addInvoice}
-				onUpdateInvoice={updateInvoice}
-				onSettleInvoice={settleInvoice}
-				onDeleteInvoice={deleteInvoice}
-			/>
+			{loading ? (
+				<div className="text-center py-16 text-muted-foreground">
+					<i className="ti ti-loader-2 animate-spin text-3xl block mb-2" />
+					<p className="text-sm">در حال بارگذاری...</p>
+				</div>
+			) : (
+				<PharmacyList
+					pharmacies={pharmacies}
+					filter={filter}
+					onUpdatePharmacy={updatePharmacy}
+					onDeletePharmacy={deletePharmacy}
+					onAddInvoice={addInvoice}
+					onUpdateInvoice={updateInvoice}
+					onSettleInvoice={settleInvoice}
+					onDeleteInvoice={deleteInvoice}
+				/>
+			)}
 
-			{/* Add pharmacy modal */}
 			{showAddModal && (
 				<PharmacyModal
 					onClose={() => setShowAddModal(false)}
-					onSave={(data) => {
-						addPharmacy(data);
+					onSave={async (data) => {
+						await addPharmacy(data);
 						setShowAddModal(false);
 					}}
 				/>

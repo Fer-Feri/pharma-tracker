@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import type { Invoice } from '@/types';
+import JalaliDatePicker from '@/components/JalaliDatePicker';
+import moment from 'moment-jalaali';
 
 interface Props {
 	initial?: Invoice;
@@ -10,7 +12,10 @@ interface Props {
 }
 
 export default function InvoiceModal({ initial, onClose, onSave }: Props) {
-	const [date, setDate] = useState(initial?.date ?? '');
+	// date در state همیشه میلادیه
+	const [date, setDate] = useState(
+		initial?.date ?? moment().format('YYYY-MM-DD'), // دیفالت امروز
+	);
 	const [amount, setAmount] = useState(initial?.amount ? String(initial.amount) : '');
 	const [period, setPeriod] = useState<1 | 3>(initial?.period ?? 1);
 	const [notes, setNotes] = useState(initial?.notes ?? '');
@@ -19,11 +24,11 @@ export default function InvoiceModal({ initial, onClose, onSave }: Props) {
 	const isEdit = !!initial;
 
 	function handleSave() {
-		if (!date.trim()) {
+		if (!date) {
 			setError('تاریخ الزامی است');
 			return;
 		}
-		onSave({ date: date.trim(), amount: Number(amount) || 0, period, notes: notes.trim() });
+		onSave({ date, amount: Number(amount) || 0, period, notes: notes.trim() });
 	}
 
 	return (
@@ -40,14 +45,13 @@ export default function InvoiceModal({ initial, onClose, onSave }: Props) {
 
 				<div className="grid grid-cols-2 gap-3 mb-4">
 					<div>
-						<label className="block text-xs text-muted-foreground mb-1.5">تاریخ</label>
-						<input
-							className="w-full px-3 py-2 rounded-lg border border-border bg-muted text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-							placeholder="2025-09-01"
-							type="date"
+						<label className="block text-xs text-muted-foreground mb-1.5">
+							تاریخ شمسی
+						</label>
+						<JalaliDatePicker
 							value={date}
-							onChange={(e) => {
-								setDate(e.target.value);
+							onChange={(g) => {
+								setDate(g);
 								setError('');
 							}}
 						/>
@@ -61,6 +65,7 @@ export default function InvoiceModal({ initial, onClose, onSave }: Props) {
 							className="w-full px-3 py-2 rounded-lg border border-border bg-muted text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
 							placeholder="8500000"
 							type="number"
+							inputMode="numeric"
 							value={amount}
 							onChange={(e) => setAmount(e.target.value)}
 						/>
@@ -88,10 +93,11 @@ export default function InvoiceModal({ initial, onClose, onSave }: Props) {
 					</div>
 				</div>
 
+
 				<div className="mb-6">
-					<label className="block text-xs text-muted-foreground)] mb-1.5">توضیحات</label>
+					<label className="block text-xs text-muted-foreground mb-1.5">توضیحات</label>
 					<textarea
-						className="w-full px-3 py-2 rounded-lg border border-border)] bg-muted)] text-sm focus:outline-none focus:border-primary)] focus:ring-2 focus:ring-primary)]/20 resize-none"
+						className="w-full px-3 py-2 rounded-lg border border-border bg-muted text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
 						placeholder="یادداشت اختیاری..."
 						rows={2}
 						value={notes}
@@ -102,12 +108,12 @@ export default function InvoiceModal({ initial, onClose, onSave }: Props) {
 				<div className="flex gap-2">
 					<button
 						onClick={onClose}
-						className="flex-1 py-2 rounded-lg border border-border)] bg-muted)] text-sm hover:bg-gray-200 transition-colors">
+						className="flex-1 py-2 rounded-lg border border-border bg-muted text-sm hover:bg-gray-200 transition-colors">
 						انصراف
 					</button>
 					<button
 						onClick={handleSave}
-						className="flex-1 py-2 rounded-lg bg-primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity">
+						className="flex-1 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity">
 						{isEdit ? 'ذخیره' : 'ثبت فاکتور'}
 					</button>
 				</div>
